@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_name', type=str, default='segformerpp_b2')
     parser.add_argument('--data', type=str, default='tthq')
     parser.add_argument('--heatmap_sigma', type=float, default=6.0)
+    parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--pretraining', action='store_true')
     parser.add_argument('--folder', type=str, default='debug')
     parser.add_argument('--debug', action='store_true')
@@ -228,5 +229,5 @@ def get_model(model_name, resolution, pretraining):
 if __name__ == "__main__":
     config = TrainConfig(lr=args.lr, model_name=args.model_name, heatmap_sigma=args.heatmap_sigma,
                          pretraining=args.pretraining, dataset_name=args.data, exp_id=args.exp_id,
-                         folder=args.folder, debug=args.debug)
+                         folder=args.folder, debug=args.debug, batch_size=args.batch_size)
     run(config)

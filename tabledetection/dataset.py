@@ -118,7 +118,15 @@ class TTHQ(torch.utils.data.Dataset):
 
         data_path = os.path.join(get_data_path(), 'tthq')
         self.data_path = data_path
-        keypoints_dict = pd.read_csv(os.path.join(data_path, 'table_detection.csv'), sep=';').to_dict()
+        # auto-detect delimiter (CSV may be saved with ',' or ';')
+        keypoints_df = pd.read_csv(os.path.join(data_path, 'table_detection.csv'), sep=None, engine='python')
+        # normalize column names and types
+        keypoints_df.columns = [str(c).strip() for c in keypoints_df.columns]
+        if 'video' in keypoints_df.columns:
+            keypoints_df['video'] = keypoints_df['video'].astype(int)
+        if 'frame' in keypoints_df.columns:
+            keypoints_df['frame'] = keypoints_df['frame'].astype(int)
+        keypoints_dict = keypoints_df.to_dict()
         videos = list(keypoints_dict['video'].values())
         frames = list(keypoints_dict['frame'].values())
         keypoints_x = [keypoints_dict[f'{i:02d}_x'] for i in range(1, 14)]

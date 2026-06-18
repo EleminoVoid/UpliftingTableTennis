@@ -1,11 +1,12 @@
 from datetime import datetime
 import os
+import re
 
 from tabledetection.helper_tabledetection import get_logs_path as glp
 
 
 class TrainConfig(object):
-    def __init__(self, lr, model_name, heatmap_sigma, pretraining, dataset_name, exp_id, folder, debug):
+    def __init__(self, lr, model_name, heatmap_sigma, pretraining, dataset_name, exp_id, folder, debug, batch_size=None):
         '''
         Config class for training the model.
         Args:
@@ -26,7 +27,8 @@ class TrainConfig(object):
 
         self.image_resolution = self._get_image_resolution()
         self.model_pretraining = pretraining
-        self.BATCH_SIZE = 4
+        # allow overriding batch size from CLI when memory is constrained
+        self.BATCH_SIZE = 4 if batch_size is None else int(batch_size)
         self.NUM_EPOCHS = 700
         if dataset_name == 'tabletennis':
             self.VAL_ITERATIONS = 16
@@ -39,11 +41,16 @@ class TrainConfig(object):
         self.seed = 42
         self.ema_alpha = 0.999
         self.date_time = datetime.now().strftime("%m%d%Y-%H%M%S")
-        self.ident = f'mn:{self.model_name}-hs:{self.heatmap_sigma:.2f}-lr:{self.lr:.2e}-dn:{self.dataset_name}-mp:{self.model_pretraining}-' \
-                     f'bs:{self.BATCH_SIZE:02d}-exp:{self.exp_id}-{self.date_time}'
+        self.ident = self._sanitize_path_component(
+            f'mn:{self.model_name}-hs:{self.heatmap_sigma:.2f}-lr:{self.lr:.2e}-dn:{self.dataset_name}-mp:{self.model_pretraining}-'
+            f'bs:{self.BATCH_SIZE:02d}-exp:{self.exp_id}-{self.date_time}'
+        )
 
         self.logs_path = os.path.join(glp(), 'logs_tmp' if self.debug else 'logs', self.folder, self.ident)
         self.saved_models_path = os.path.join(glp(), 'saved_models' if not self.debug else 'saved_models_tmp', self.folder, self.ident)
+
+    def _sanitize_path_component(self, value):
+        return re.sub(r'[<>:"/\\|?*]', '_', value)
 
     def get_hparams(self):
         hparams = {

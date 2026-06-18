@@ -1,5 +1,3 @@
-import os
-
-logs_path = '<your_logs_directory>'
-data_path = '<your_data_directory>'
-weights_path = '<your_weights_directory>'
+data_path    = 'C:/Users/312_Lab/Documents/GitHub/Uplifting/data'       # folder containing tthq_videos/
+weights_path = 'C:/Users/312_Lab/Documents/GitHub/Uplifting/weights'        # unzipped weights folder
+logs_path    = 'C:/Users/312_Lab/Documents/GitHub/Uplifting/logs'       # where checkpoints will be saved

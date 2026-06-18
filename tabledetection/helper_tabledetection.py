@@ -413,10 +413,11 @@ def weighted_mse_loss(input: torch.Tensor, target: torch.Tensor, visibilities: t
     squared_error = (input - target) ** 2
 
     # weight = 100 for each value larger than 0.1 in the target, else 1
-    weight = torch.where(target > 0.1, torch.ones_like(target) * 100, torch.ones_like(target))
+    # compute without allocating multiple large temporary tensors
+    weight = 1.0 + 99.0 * (target > 0.1).to(dtype=squared_error.dtype)
 
     # Apply weights element-wise
-    weighted_squared_error = weight * squared_error
+    weighted_squared_error = squared_error * weight
 
     # Invisible keypoints should be excluded from loss
     # include_mask = (visibilities == KEYPOINT_VISIBLE)

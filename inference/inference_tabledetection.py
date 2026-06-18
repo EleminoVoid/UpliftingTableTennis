@@ -3,6 +3,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--output_dir', type=str, default=None, help='Directory where evaluation figures and summaries are saved')
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 import torch
@@ -23,6 +24,10 @@ from inference.dataset import TTHQ as TTHQ_trajectory
 
 from tabledetection.dataset import TableTennisTable, TTHQ
 from tabledetection.helper_tabledetection import calculate_pck_fixed_tolerance
+
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+DEFAULT_OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'logs', 'evaluation', 'tabledetection')
 
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -55,6 +60,59 @@ def load_model(model_path):
     print(f'Loaded tabledetection model: {model_name} with resolution {resolution}')
     transform_table = get_transforms_table('test', resolution)
     return table_model, transform_table
+
+
+def _model_label_from_path(model_path):
+    return os.path.basename(os.path.dirname(model_path))
+
+
+def save_evaluation_summary(results, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+    labels = [result['model_name'] for result in results]
+    metrics = ['pck2', 'pck5', 'pck10', 'pck20']
+    metric_labels = ['PCK @ 2px', 'PCK @ 5px', 'PCK @ 10px', 'PCK @ 20px']
+    values = np.array([[result[metric] * 100.0 for metric in metrics] for result in results])
+
+    x = np.arange(len(metrics))
+    width = 0.8 / max(len(results), 1)
+
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    palette = plt.cm.Blues(np.linspace(0.45, 0.85, max(len(results), 1)))
+
+    for idx, label in enumerate(labels):
+        offset = (idx - (len(results) - 1) / 2.0) * width
+        bars = ax.bar(x + offset, values[idx], width=width, label=label, color=palette[idx], edgecolor='black', linewidth=0.6)
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2.0, height + 0.15, f'{height:.2f}', ha='center', va='bottom', fontsize=8)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(metric_labels)
+    ax.set_ylabel('PCK (%)')
+    ax.set_title('Table Detection Evaluation on TTHQ')
+    ax.set_ylim(0, max(1.0, float(values.max()) * 1.2))
+    ax.legend(frameon=False, ncol=min(2, len(results)), loc='upper left')
+    fig.tight_layout()
+
+    png_path = os.path.join(output_dir, 'tabledetection_pck_summary.png')
+    pdf_path = os.path.join(output_dir, 'tabledetection_pck_summary.pdf')
+    fig.savefig(png_path, dpi=300, bbox_inches='tight')
+    fig.savefig(pdf_path, bbox_inches='tight')
+    plt.close(fig)
+
+    metrics_path = os.path.join(output_dir, 'tabledetection_pck_summary.txt')
+    with open(metrics_path, 'w', encoding='utf-8') as f:
+        f.write('model_name,pck2,pck5,pck10,pck20\n')
+        for result in results:
+            f.write(
+                f"{result['model_name']},{result['pck2']:.6f},{result['pck5']:.6f},{result['pck10']:.6f},{result['pck20']:.6f}\n"
+            )
+
+    print(f'Saved evaluation summary figure to: {png_path}')
+    print(f'Saved evaluation summary figure to: {pdf_path}')
+    print(f'Saved raw metrics to: {metrics_path}')
 
 
 def inference(model_path, title=''):
@@ -106,11 +164,24 @@ def inference(model_path, title=''):
 
     print('----- Finished inference for tabledetection. -----')
 
+    return {
+        'model_name': _model_label_from_path(model_path),
+        'title': title,
+        'pck2': pck2,
+        'pck5': pck5,
+        'pck10': pck10,
+        'pck20': pck20,
+    }
+
 
 
 def main():
+    results = []
     for model_path in model_paths:
-        inference(model_path, title='tabledetection on TTHQ')
+        results.append(inference(model_path, title='tabledetection on TTHQ'))
+
+    output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
+    save_evaluation_summary(results, output_dir)
 
 
 def evaluate_filter(model_path1, model_path2):
